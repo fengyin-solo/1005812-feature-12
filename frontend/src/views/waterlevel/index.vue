@@ -24,6 +24,41 @@
       </span>
     </p>
 
+    <section class="rain-alerts" :class="{ empty: !rainAlerts.length }">
+      <header class="rain-alerts-head">
+        <h3>雨量站异常通报（雨量监测侧上报）</h3>
+        <span>{{ rainAlerts.length }} 条待关注</span>
+      </header>
+      <table v-if="rainAlerts.length" class="data-table">
+        <thead>
+          <tr>
+            <th>雨量记录</th>
+            <th>上报站点</th>
+            <th>报送时段</th>
+            <th>测报员</th>
+            <th>异常情况</th>
+            <th>上报时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="alert in rainAlerts" :key="alert.recordId">
+            <td>{{ alert.recordNo }}</td>
+            <td>
+              {{ alert.stationName }}
+              <span class="alert-sub">{{ alert.stationId }}<template v-if="alert.currentStationName !== alert.stationName">
+                ，现名「{{ alert.currentStationName }}」
+              </template></span>
+            </td>
+            <td>{{ alert.period }}</td>
+            <td>{{ alert.reporter }}</td>
+            <td>{{ alert.notice }}</td>
+            <td>{{ formatTime(alert.receivedAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="alert-empty">当前没有雨量站上报异常；雨量记录一旦被本站测报员标记异常，会立即出现在这里。</p>
+    </section>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -79,7 +114,9 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { listRainfallAlerts } from '@/data/rainfall/service'
 import type { EntryRow } from '@/data/types'
+import type { RainAlert } from '@/data/rainfall/types'
 
 const meta = moduleMeta('waterlevel')
 const columns = ["监测编号", "监测点位", "水位读数", "警戒水位", "采集时间", "监测人", "超标判定", "监测状态"]
@@ -92,6 +129,12 @@ const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+// 雨量站上报的异常：本站测报员标记后，水位监测侧在本面板直接看到。
+const rainAlerts = ref<RainAlert[]>([])
+
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false })
+}
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -128,6 +171,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    rainAlerts.value = listRainfallAlerts()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '水位监测列表读取失败'
   }
@@ -135,3 +179,24 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.rain-alerts {
+  background: #fff;
+  border: 1px solid #fda29b;
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.rain-alerts.empty { border-color: var(--border); border-left-color: #12b76a; }
+.rain-alerts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.rain-alerts-head h3 { margin: 0; font-size: 14px; }
+.alert-sub { display: block; color: var(--muted); font-size: 12px; }
+.alert-empty { margin: 0; color: var(--muted); font-size: 13px; }
+</style>
