@@ -24,6 +24,24 @@
       </span>
     </p>
 
+    <section v-if="rainfallAlerts.length" class="rain-alert-panel">
+      <h3>雨量站上报异常（跨模块共享）</h3>
+      <table class="data-table">
+        <thead>
+          <tr><th>雨量站</th><th>报送时段</th><th>测报员</th><th>异常说明</th><th>上报时间</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="alert in rainfallAlerts" :key="alert.id">
+            <td>{{ alert.stationCurrentName }}</td>
+            <td>{{ alert.period }}</td>
+            <td>{{ alert.observerName }}</td>
+            <td class="abn-text">{{ alert.abnormalNote }}</td>
+            <td>{{ alert.submittedAt }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -79,6 +97,8 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { rainfallAlertsForWaterLevel } from '@/domain/rainfall/service'
+import type { RainfallView } from '@/domain/rainfall/service'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('waterlevel')
@@ -90,6 +110,7 @@ const stats = [{"label": "待采集点位", "value": 0}, {"label": "水位正常
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const rainfallAlerts = ref<RainfallView[]>([])
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
@@ -128,6 +149,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    rainfallAlerts.value = rainfallAlertsForWaterLevel()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '水位监测列表读取失败'
   }
@@ -135,3 +157,9 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.rain-alert-panel { background: #fff; border: 1px solid #f0a99f; border-left: 4px solid #d92d20; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.rain-alert-panel h3 { margin: 0 0 8px; font-size: 14px; color: #b42318; }
+.abn-text { color: #b42318; }
+</style>

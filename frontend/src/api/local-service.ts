@@ -1,5 +1,6 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { listRecords as listRainfallRecords } from '@/domain/rainfall/store'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
@@ -30,6 +31,12 @@ export function listEntries(key: string, filters: Record<string, string> = {}): 
 
 export function runAction(key: string, id: number, action: string): ActionResult {
   const meta = moduleMeta(key)
+  if (key === 'rainfall') {
+    return {
+      ok: false,
+      message: '雨量监测已改为按站点归属管理，请在雨量监测页用「上报报送 / 核对 / 异常」专用入口操作',
+    }
+  }
   const target = meta.actionTargets[action]
   if (!target) {
     return { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
@@ -87,6 +94,16 @@ export function downloadEntries(key: string): void {
 export function loadOverview(): OverviewResult {
   const rows = allRows()
   const modules = [...MODULE_BY_KEY.values()].map((meta) => {
+    if (meta.key === 'rainfall') {
+      // 雨量模块用专属领域数据统计：待处理=待核或未核对，异常=已上报异常。
+      const entries = listRainfallRecords()
+      return {
+        name: meta.name,
+        created: entries.length,
+        pending: entries.filter((row) => !row.locked).length,
+        abnormal: entries.filter((row) => row.abnormal).length,
+      }
+    }
     const entries = rows[meta.key] ?? []
     return {
       name: meta.name,
